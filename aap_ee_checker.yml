@@ -1,0 +1,80 @@
+---
+- name: Check dependencies in Ansible Automation Platform Execution Environment
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    collection_list: []
+    python_package_list:
+      - "boto3"
+      - "PyU4V"
+      - "yy"
+    system_tool_list:
+      - "jq"
+      - "unzip"
+      - "xx"
+
+  tasks:
+  # --------- check ansible collection installation --------- #
+    - name: Liat all ansible collections that are installed
+      ansible.builtin.command: ansible-galaxy collection list
+      register: installed_collections
+      changed_when: installed_collections.rc != 0
+
+    # - name: Print out installed_collections
+    #   ansible.builtin.debug:
+    #     msg: "{{ installed_collections.stdout_lines }}"
+
+    - name: Set clean_installed_collection list (stripped)
+      ansible.builtin.set_fact:
+        clean_installed_collections: "{{ installed_collections.stdout_lines | from_yaml |
+          select('match', '^[a-zA-Z0-9_.]+\\s+') | map('regex_replace', '\\s+.*$', '') | list }}"
+
+    - name: Check which required collections are installed
+      ansible.builtin.set_fact:
+        matching_collections: "{{ collection_list | select('in', clean_installed_collections) | list }}"
+
+    - name: Report matching installed collections
+      ansible.builtin.debug:
+        msg: "Ansible collections are INSTALLED: {{ matching_collections }}"
+
+    - name: Report missing collection
+      ansible.builtin.debug:
+        msg: "Ansible collections are MISSING: {{ collection_list | difference(matching_collections) }}"
+
+    # --------- check python package installation --------- #
+    - name: Check if Python packages are installed or not
+      ansible.builtin.shell: |
+        pip show {{ item }} >/dev/null 2>&1 && echo "INSTALLED" || echo "MISSING"
+      loop: "{{ python_package_list }}"
+      register: pip_check
+      changed_when: pip_check.rc != 0
+
+    - name: Report package status
+      ansible.builtin.debug:
+        msg: "Pythn package {{ item.item }} is {{ item.stdout }}"
+      loop: "{{ pip_check.results }}"
+
+    # --------- check system tool installation --------- #
+    - name: Check if system tool is available or not
+      ansible.builtin.command: which {{ item }}
+      loop: "{{ system_tool_list }}"
+      register: system_tool_check
+      failed_when: false
+      changed_when: system_tool_check.rc != 0
+
+    # - name: Show system tool check result
+    #   ansible.builtin.debug:
+    #     msg: "{{ system_tool_check.results }}"
+
+    - name: Report installed system tool(s)
+      ansible.builtin.debug:
+        msg: "{{ item.item }} is INSTALLED"
+      when: item.rc == 0
+      loop: "{{ system_tool_check.results }}"
+
+    - name: Report missing tools
+      ansible.builtin.debug:
+        msg: "{{ item.item }} is NOT installed"
+      when: item.rc != 0
+      loop: "{{ system_tool_check.results }}"
