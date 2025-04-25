@@ -5,14 +5,8 @@
   gather_facts: false
   vars:
     collection_list: []
-    python_package_list:
-      - "boto3"
-      - "PyU4V"
-      - "yy"
-    system_tool_list:
-      - "jq"
-      - "unzip"
-      - "xx"
+    python_package_list: []
+    system_tool_list: []
 
   tasks:
   # --------- check ansible collection installation --------- #
